@@ -1,0 +1,215 @@
+alias: Kitchen Lights Handler
+description: ""
+triggers:
+  - trigger: state
+    entity_id:
+      - binary_sensor.kitchen_motion
+    to: "off"
+    for:
+      hours: 0
+      minutes: 2
+      seconds: 0
+    id: MOTION_CLEARED
+  - trigger: state
+    entity_id:
+      - binary_sensor.kitchen_motion
+    to: "off"
+    for:
+      hours: 0
+      minutes: 3
+      seconds: 0
+    id: MOTION_CLEARED_LONGER
+  - trigger: state
+    entity_id:
+      - binary_sensor.kitchen_motion
+    to: "on"
+    id: MOTION_DETECTED
+  - trigger: state
+    entity_id:
+      - input_select.ambient_light_state
+    to: null
+conditions:
+  - condition: state
+    entity_id: input_boolean.kitchen_automation_override
+    state: "off"
+actions:
+  - choose:
+      - conditions:
+          - condition: state
+            entity_id: binary_sensor.kitchen_motion
+            state: "on"
+          - condition: state
+            entity_id: input_select.home_state
+            state: Everyone asleep
+        sequence:
+          - alias: Turn on the kitchen lights to 20%
+            action: light.turn_on
+            data:
+              brightness_pct: 20
+            target:
+              device_id: 24dc5ef0b0a306cfea2381322474646f
+        alias: Motion Detected + Everyone Asleep
+      - conditions:
+          - condition: state
+            entity_id: binary_sensor.kitchen_motion
+            state: "on"
+          - condition: state
+            entity_id: input_select.home_state
+            state: Some asleep
+        sequence:
+          - alias: Turn on the light
+            action: light.turn_on
+            data:
+              brightness_pct: 50
+            target:
+              device_id:
+                - 24dc5ef0b0a306cfea2381322474646f
+                - d4dc315435411bbf7eb245e06c24e120
+        alias: Motion Detected + Some Asleep
+      - conditions:
+          - condition: state
+            entity_id: binary_sensor.kitchen_motion
+            state: "on"
+          - condition: state
+            entity_id: input_select.ambient_light_state
+            state: Dim
+        sequence:
+          - action: light.turn_on
+            metadata: {}
+            data: {}
+            target:
+              device_id: a018f3a5d1e9f54ef315cc8b2b4aa88c
+            enabled: false
+          - action: light.turn_on
+            metadata: {}
+            data:
+              kelvin: 2801
+              brightness_pct: 100
+            target:
+              device_id: a018f3a5d1e9f54ef315cc8b2b4aa88c
+            enabled: false
+          - action: script.turn_on
+            metadata: {}
+            data: {}
+            target:
+              entity_id: script.kitchen_lights_on
+        alias: Motion Detected + Dim
+      - conditions:
+          - condition: state
+            entity_id: binary_sensor.kitchen_motion
+            state: "off"
+            for:
+              hours: 0
+              minutes: 3
+              seconds: 0
+        sequence:
+          - alias: Turn off accessory lights
+            action: light.turn_off
+            data: {}
+            target:
+              device_id:
+                - d4dc315435411bbf7eb245e06c24e120
+                - a018f3a5d1e9f54ef315cc8b2b4aa88c
+          - choose:
+              - conditions:
+                  - condition: or
+                    conditions:
+                      - condition: state
+                        entity_id: input_select.ambient_light_state
+                        state: Bright
+                      - condition: state
+                        entity_id: input_select.home_state
+                        state: Everyone asleep
+                sequence:
+                  - action: light.turn_off
+                    metadata: {}
+                    data: {}
+                    target:
+                      device_id: 24dc5ef0b0a306cfea2381322474646f
+                alias: Turn off light if it's bright or Everyone Asleep
+              - conditions:
+                  - condition: state
+                    entity_id: light.kitchen_main_lights
+                    state: "on"
+                  - condition: state
+                    entity_id: input_select.ambient_light_state
+                    state: Dim
+                sequence:
+                  - alias: Reduce the light brightness
+                    action: light.turn_on
+                    data:
+                      brightness: >-
+                        {{ [state_attr('light.kitchen_main_lights',
+                        'brightness') | int(0) * 0.2, 51] | max }}
+                    target:
+                      entity_id: light.kitchen_main_lights
+                alias: Reduce brightness if dim and light is still on
+        alias: Motion Cleared Longer
+      - conditions:
+          - condition: state
+            entity_id: binary_sensor.kitchen_motion
+            state: "off"
+        sequence:
+          - alias: Dim accessory lights by 50%
+            action: light.turn_on
+            data:
+              brightness_step_pct: -50
+            target:
+              device_id:
+                - d4dc315435411bbf7eb245e06c24e120
+                - a018f3a5d1e9f54ef315cc8b2b4aa88c
+        alias: Motion Cleared
+      - conditions:
+          - condition: state
+            entity_id: input_select.ambient_light_state
+            state: Dim
+          - condition: not
+            conditions:
+              - condition: state
+                entity_id: input_select.home_state
+                state: Vacation
+              - condition: state
+                entity_id: input_select.home_state
+                state: Away
+              - condition: state
+                entity_id: input_select.home_state
+                state: Everyone asleep
+            alias: If Home state is not away, vacation, or everyone asleep
+        sequence:
+          - if:
+              - condition: state
+                entity_id: light.kitchen_main_lights
+                state: "off"
+            then:
+              - action: light.turn_on
+                metadata: {}
+                data:
+                  brightness_pct: 20
+                target:
+                  device_id: 24dc5ef0b0a306cfea2381322474646f
+            alias: Turn on lights if not on
+        alias: >-
+          If Ambient Light State is Dim and Home state is not away, vacation, or
+          everyone asleep
+      - conditions:
+          - condition: state
+            entity_id: input_select.ambient_light_state
+            state: Bright
+          - condition: state
+            entity_id: binary_sensor.kitchen_motion
+            state: "off"
+            for:
+              hours: 0
+              minutes: 5
+              seconds: 0
+        sequence:
+          - action: light.turn_off
+            metadata: {}
+            data: {}
+            target:
+              device_id:
+                - 24dc5ef0b0a306cfea2381322474646f
+                - d4dc315435411bbf7eb245e06c24e120
+                - a018f3a5d1e9f54ef315cc8b2b4aa88c
+        alias: If Ambient Light State is Bright and motion is clear for 5 minutes
+mode: single
