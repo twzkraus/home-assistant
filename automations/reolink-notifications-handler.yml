@@ -1,0 +1,251 @@
+alias: Reolink Notifications Handler
+description: ""
+triggers:
+  - trigger: state
+    entity_id:
+      - binary_sensor.doorbell_person
+    to: "on"
+    id: DOORBELL_PERSON
+  - trigger: state
+    entity_id:
+      - binary_sensor.doorbell_pet_2
+    to: "on"
+    id: DOORBELL_ANIMAL
+  - trigger: state
+    entity_id:
+      - binary_sensor.doorbell_visitor
+    to: "on"
+    id: DOORBELL_VISITOR
+  - trigger: state
+    entity_id:
+      - binary_sensor.doorbell_package
+    to: "on"
+    id: DOORBELL_PACKAGE
+  - trigger: state
+    entity_id:
+      - binary_sensor.reolink_duo_2_wifi_person
+    to: "on"
+    id: DRIVEWAY_PERSON
+  - trigger: state
+    entity_id:
+      - binary_sensor.reolink_duo_2_wifi_animal
+    to: "on"
+    id: DRIVEWAY_ANIMAL
+  - trigger: state
+    entity_id:
+      - binary_sensor.backyard_person
+    to: "on"
+    id: BACKYARD_PERSON
+    enabled: true
+  - trigger: state
+    entity_id:
+      - binary_sensor.backyard_animal
+    to: "on"
+    id: BACKYARD_ANIMAL
+  - trigger: state
+    entity_id:
+      - binary_sensor.argus_eco_ultra_1_person
+    to: "on"
+    id: W_SIDEYARD_PERSON
+  - trigger: state
+    entity_id:
+      - binary_sensor.argus_eco_ultra_1_animal
+    to: "on"
+    id: W_SIDEYARD_ANIMAL
+  - trigger: state
+    entity_id:
+      - binary_sensor.argus_eco_ultra_2_person
+    to: "on"
+    id: E_SIDEYARD_PERSON
+  - trigger: state
+    entity_id:
+      - binary_sensor.argus_eco_ultra_2_animal
+    to: "on"
+    id: E_SIDEYARD_ANIMAL
+conditions:
+  - condition: template
+    value_template: >-
+      {{ state_attr('automation.handle_doorbell_notification_snooze', 'current')
+      == 0 }}
+    alias: If Doorbell Notifications are not Snoozed
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id:
+              - DOORBELL_PERSON
+              - DOORBELL_ANIMAL
+              - DOORBELL_VISITOR
+              - DOORBELL_PACKAGE
+          - condition: template
+            value_template: >-
+              {{ state_attr('schedule.reolink_notifications_schedule',
+              'doorbell') == true  }}
+        sequence:
+          - alias: Stop if garage door is open (to avoid spam)
+            if:
+              - condition: and
+                conditions:
+                  - condition: state
+                    entity_id: cover.garage_door
+                    state: open
+                  - condition: trigger
+                    id:
+                      - DOORBELL_PERSON
+                      - DOORBELL_PACKAGE
+            then:
+              - stop: It's probably just me
+          - variables:
+              trigger: |-
+                {{
+                  'Person' if trigger.entity_id == 'binary_sensor.doorbell_person' else
+                  'Animal' if trigger.entity_id == 'binary_sensor.doorbell_pet_2' else
+                  'Visitor' if trigger.entity_id == 'binary_sensor.doorbell_visitor' else
+                  'Package' if trigger.entity_id == 'binary_sensor.doorbell_package' else
+                  'Motion'
+                }}
+              device: Doorbell
+          - action: camera.snapshot
+            metadata: {}
+            data:
+              filename: /config/www/reolink_snapshot/last_snapshot_{{ device }}.jpg
+            target:
+              entity_id: camera.doorbell_fluent
+      - conditions:
+          - condition: trigger
+            id:
+              - BACKYARD_PERSON
+              - BACKYARD_ANIMAL
+          - condition: template
+            value_template: >-
+              {{ state_attr('schedule.reolink_notifications_schedule',
+              'backyard') == true  }}
+        sequence:
+          - variables:
+              trigger: |-
+                {{
+                  'Person' if trigger.entity_id == 'binary_sensor.backyard_person' else
+                  'Animal' if trigger.entity_id == 'binary_sensor.backyard_animal' else
+                  'Motion'
+                }}
+              device: Backyard
+          - delay:
+              hours: 0
+              minutes: 0
+              seconds: 1
+              milliseconds: 500
+          - action: camera.snapshot
+            metadata: {}
+            data:
+              filename: /config/www/reolink_snapshot/last_snapshot_{{ device }}.jpg
+            target:
+              entity_id: camera.backyard_fluent
+      - conditions:
+          - condition: trigger
+            id:
+              - E_SIDEYARD_PERSON
+              - E_SIDEYARD_ANIMAL
+          - condition: template
+            value_template: >-
+              {{ state_attr('schedule.reolink_notifications_schedule',
+              'esideyard') == true  }}
+            enabled: true
+        sequence:
+          - variables:
+              trigger: |-
+                {{
+                  'Person' if trigger.entity_id == 'binary_sensor.argus_eco_ultra_2_person' else
+                  'Animal' if trigger.entity_id == 'binary_sensor.argus_eco_ultra_2_animal' else
+                  'Motion'
+                }}
+              device: E-Sideyard
+            enabled: true
+          - action: camera.snapshot
+            metadata: {}
+            data:
+              filename: /config/www/reolink_snapshot/last_snapshot_{{ device }}.jpg
+            target:
+              entity_id: camera.argus_eco_ultra_2_fluent
+      - conditions:
+          - condition: trigger
+            id:
+              - W_SIDEYARD_PERSON
+              - W_SIDEYARD_ANIMAL
+          - condition: template
+            value_template: >-
+              {{ state_attr('schedule.reolink_notifications_schedule',
+              'wsideyard') == true  }}
+        sequence:
+          - variables:
+              trigger: |-
+                {{
+                  'Person' if trigger.entity_id == 'binary_sensor.argus_eco_ultra_1_person' else
+                  'Animal' if trigger.entity_id == 'binary_sensor.argus_eco_ultra_1_animal' else
+                  'Motion'
+                }}
+              device: W-Sideyard
+          - action: camera.snapshot
+            metadata: {}
+            data:
+              filename: /config/www/reolink_snapshot/last_snapshot_{{ device }}.jpg
+            target:
+              entity_id: camera.argus_eco_ultra_1_fluent
+      - conditions:
+          - condition: trigger
+            id:
+              - DRIVEWAY_PERSON
+              - DRIVEWAY_ANIMAL
+          - condition: template
+            value_template: >-
+              {{ state_attr('schedule.reolink_notifications_schedule',
+              'driveway') == true  }}
+        sequence:
+          - alias: Stop if garage door is open (to avoid spam)
+            if:
+              - condition: and
+                conditions:
+                  - condition: state
+                    entity_id: cover.garage_door
+                    state: open
+                  - condition: trigger
+                    id:
+                      - DRIVEWAY_PERSON
+            then:
+              - stop: It's probably just me
+          - variables:
+              trigger: |-
+                {{
+                  'Person' if trigger.entity_id == 'binary_sensor.reolink_duo_2_wifi_person' else
+                  'Animal' if trigger.entity_id == 'binary_sensor.reolink_duo_2_wifi_animal' else
+                  'Motion'
+                }}
+              device: Driveway
+          - action: camera.snapshot
+            metadata: {}
+            data:
+              filename: /config/www/reolink_snapshot/last_snapshot_{{ device }}.jpg
+            target:
+              entity_id: camera.reolink_duo_2_wifi_fluent
+    default:
+      - stop: No matches
+  - action: notify.mobile_app_turners_iphone
+    metadata: {}
+    data:
+      title: "{{ device }} {{ trigger }}"
+      message: >-
+        {{ trigger }} detected on {{ device }} at {{ now().strftime("%Y-%m-%d
+        %H:%M:%S")  }}
+      data:
+        group: "{{ device }}-{{ trigger }}-detected-group"
+        url: /dashboard-security
+        image: /local/reolink_snapshot/last_snapshot_{{ device }}.jpg
+        actions:
+          - action: SNOOZE_5
+            title: Mute 5 Minutes
+          - action: SNOOZE_15
+            title: Mute 15 Minutes
+          - action: SNOOZE_60
+            title: Mute 1 hour
+          - action: SNOOZE_240
+            title: Mute 4 hours
+mode: single
