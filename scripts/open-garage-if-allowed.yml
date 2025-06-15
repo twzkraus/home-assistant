@@ -1,0 +1,56 @@
+alias: Open garage if allowed
+sequence:
+  - condition: state
+    state: "off"
+    entity_id: input_boolean.garage_automation_override
+    alias: Test That Garage Automation Override is Off
+  - condition: or
+    conditions:
+      - condition: state
+        entity_id: input_select.home_state
+        state: Home
+      - condition: state
+        entity_id: input_select.home_state
+        state: Away
+    alias: Test that Home State is Home or Away
+  - alias: Add a log if allow garage auto-open is off
+    if:
+      - condition: state
+        entity_id: input_boolean.allow_garage_auto_open
+        state: "off"
+    then:
+      - action: logbook.log
+        metadata: {}
+        data:
+          message: >-
+            Open garage if allowed script blocked, because permission has not
+            been granted
+          name: Garage Warning
+      - stop: Nothing to do here
+  - condition: state
+    entity_id: input_boolean.allow_garage_auto_open
+    state: "on"
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 3
+  - condition: state
+    entity_id: cover.garage_door
+    state: closed
+  - device_id: 26bad5c222305a1ed8e4e0c08cffaf22
+    domain: cover
+    entity_id: 2e15021f06436bd25745ae79082a8798
+    type: open
+    enabled: true
+  - action: notify.mobile_app_turners_iphone
+    metadata: {}
+    data:
+      title: Garage Door opened
+      message: Garage opened by allow auto-open garage door setting
+  - action: input_boolean.turn_off
+    metadata: {}
+    data: {}
+    target:
+      entity_id: input_boolean.allow_garage_auto_open
+description: ""
+icon: mdi:garage-alert
